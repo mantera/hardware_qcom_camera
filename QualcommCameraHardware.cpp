@@ -273,6 +273,8 @@ static unsigned int PICTURE_SIZE_COUNT;
 static const camera_size_type * picture_sizes_ptr;
 static int supportedPictureSizesCount;
 static liveshotState liveshot_state = LIVESHOT_DONE;
+static int initdefaultP=0;
+static unsigned int timeoutCount=0;
 
 #ifdef Q12
 #undef Q12
@@ -994,6 +996,21 @@ static String8 create_values_range_str(int min, int max){
     return str;
 }
 
+static String8 sensor_values(const str_map *values, int len, uint32_t sensor_value) 
+{
+    String8 str;
+
+    for (int i = 0; i < len; i++) {
+        if((1<<values[i].val) & sensor_value)
+        {
+            if(str.getUtf32Length()>0)
+                str.append(",");
+            str.append(values[i].desc);
+        }
+   }
+    return str;
+}
+
 extern "C" {
 //------------------------------------------------------------------------
 //   : 720p busyQ funcitons
@@ -1250,6 +1267,8 @@ void QualcommCameraHardware::storeTargetType(void) {
            break;
        }
     }
+    mCurrentTarget = TARGET_MSM7630;
+
     LOGV(" Storing the current target type as %d ", mCurrentTarget );
     return;
 }
@@ -1587,6 +1606,7 @@ void QualcommCameraHardware::filterPictureSizes(){
 
 bool QualcommCameraHardware::supportsSceneDetection() {
    unsigned int prop = 0;
+   return false;
    for(prop=0; prop<sizeof(boardProperties)/sizeof(board_property); prop++) {
        if((mCurrentTarget == boardProperties[prop].target)
           && boardProperties[prop].hasSceneDetect == true) {
@@ -1599,6 +1619,7 @@ bool QualcommCameraHardware::supportsSceneDetection() {
 
 bool QualcommCameraHardware::supportsSelectableZoneAf() {
    unsigned int prop = 0;
+   return false;
    for(prop=0; prop<sizeof(boardProperties)/sizeof(board_property); prop++) {
        if((mCurrentTarget == boardProperties[prop].target)
           && boardProperties[prop].hasSelectableZoneAf == true) {
@@ -1611,6 +1632,7 @@ bool QualcommCameraHardware::supportsSelectableZoneAf() {
 
 bool QualcommCameraHardware::supportsFaceDetection() {
    unsigned int prop = 0;
+   return false;
    for(prop=0; prop<sizeof(boardProperties)/sizeof(board_property); prop++) {
        if((mCurrentTarget == boardProperties[prop].target)
           && boardProperties[prop].hasFaceDetect == true) {
@@ -1651,15 +1673,25 @@ void QualcommCameraHardware::initDefaultParameters()
           antibanding_values = create_values_str(
             antibanding_3D, sizeof(antibanding_3D) / sizeof(str_map));
         } else{
-        antibanding_values = create_values_str(
-            antibanding, sizeof(antibanding) / sizeof(str_map));
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.antibanding>0)
+        antibanding_values=sensor_values(antibanding, sizeof(antibanding) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.antibanding);
+    else
+        antibanding_values = CameraParameters::ANTIBANDING_OFF;
         }
-        effect_values = create_values_str(
-            effects, sizeof(effects) / sizeof(str_map));
-        autoexposure_values = create_values_str(
-            autoexposure, sizeof(autoexposure) / sizeof(str_map));
-        whitebalance_values = create_values_str(
-            whitebalance, sizeof(whitebalance) / sizeof(str_map));
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.effects>0)
+        effect_values= sensor_values(effects, sizeof(effects) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.effects);
+    else
+        effect_values = CameraParameters::EFFECT_NONE;
+
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.autoexposure>0)
+        autoexposure_values= sensor_values(autoexposure, sizeof(autoexposure) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.autoexposure);
+    else
+        autoexposure_values = CameraParameters::AUTO_EXPOSURE_FRAME_AVG;
+
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.wb>0)
+        whitebalance_values=sensor_values(whitebalance, sizeof(whitebalance) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.wb);
+    else
+        whitebalance_values = CameraParameters::WHITE_BALANCE_AUTO;
         //filter picture sizes
         filterPictureSizes();
         picture_size_values = create_sizes_str(
@@ -1694,21 +1726,29 @@ void QualcommCameraHardware::initDefaultParameters()
             fps_ranges_supported_values);
         mParameters.setPreviewFpsRange(MINIMUM_FPS*1000,MAXIMUM_FPS*1000);
 
-        flash_values = create_values_str(
-            flash, sizeof(flash) / sizeof(str_map));
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.flash>0)
+        flash_values=sensor_values(flash, sizeof(flash) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.flash);
+    else
+        flash_values =CameraParameters::FLASH_MODE_OFF ;
         if(mHasAutoFocusSupport){
-            focus_mode_values = create_values_str(
-                    focus_modes, sizeof(focus_modes) / sizeof(str_map));
+        if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.focus>0)
+            focus_mode_values=sensor_values(focus_modes, sizeof(focus_modes) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.focus);
+        else
+            focus_mode_values = CameraParameters::FOCUS_MODE_INFINITY;
         }
         if(mIs3DModeOn){
           iso_values = create_values_str(
               iso_3D,sizeof(iso_3D)/sizeof(str_map));
         } else{
-           iso_values = create_values_str(
-              iso,sizeof(iso)/sizeof(str_map));
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.ISO>0)
+        iso_values=sensor_values(iso,sizeof(iso)/sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.ISO);
+    else
+        iso_values = CameraParameters::ISO_AUTO;
         }
-        lensshade_values = create_values_str(
-            lensshade,sizeof(lensshade)/sizeof(str_map));
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.lensshade>0)
+        lensshade_values=sensor_values(lensshade,sizeof(lensshade)/sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.lensshade);
+    else
+        lensshade_values = CameraParameters::LENSSHADE_DISABLE;
         mce_values = create_values_str(
             mce,sizeof(mce)/sizeof(str_map));
         if(!mIs3DModeOn){
@@ -1732,6 +1772,9 @@ void QualcommCameraHardware::initDefaultParameters()
             touchafaec_values = create_values_str(
                 touchafaec,sizeof(touchafaec)/sizeof(str_map));
         }
+        else
+            touchafaec_values = CameraParameters::TOUCH_AF_AEC_OFF;
+
         zsl_values = create_values_str(
             zsl_modes,sizeof(zsl_modes)/sizeof(str_map));
 
@@ -1770,9 +1813,10 @@ void QualcommCameraHardware::initDefaultParameters()
         preview_frame_rate_values = create_values_range_str(
             MINIMUM_FPS, MAXIMUM_FPS);
 
-        scenemode_values = create_values_str(
-            scenemode, sizeof(scenemode) / sizeof(str_map));
-
+    if (HAL_cameraInfo[HAL_currentCameraId].parameters_data.scenemode>0)
+        scenemode_values=sensor_values(scenemode, sizeof(scenemode) / sizeof(str_map),HAL_cameraInfo[HAL_currentCameraId].parameters_data.scenemode);
+    else
+        scenemode_values = CameraParameters::SCENE_MODE_AUTO;
         if(supportsSceneDetection()) {
             scenedetect_values = create_values_str(
                 scenedetect, sizeof(scenedetect) / sizeof(str_map));
@@ -1934,12 +1978,54 @@ void QualcommCameraHardware::initDefaultParameters()
                         flash_values);
     }
 
-    mParameters.set(CameraParameters::KEY_MAX_SHARPNESS,
-            CAMERA_MAX_SHARPNESS);
-    mParameters.set(CameraParameters::KEY_MAX_CONTRAST,
-            CAMERA_MAX_CONTRAST);
-    mParameters.set(CameraParameters::KEY_MAX_SATURATION,
-            CAMERA_MAX_SATURATION);
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_sharpness!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_sharpness)
+        mParameters.set(CameraParameters::KEY_MAX_SHARPNESS,HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_sharpness);
+    else
+        mParameters.set(CameraParameters::KEY_MAX_SHARPNESS,CAMERA_DEF_SHARPNESS);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_contrast!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_contrast)
+        mParameters.set(CameraParameters::KEY_MAX_CONTRAST,HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_contrast);
+    else
+        mParameters.set(CameraParameters::KEY_MAX_CONTRAST,CAMERA_DEF_CONTRAST);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_saturation!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_saturation)
+        mParameters.set(CameraParameters::KEY_MAX_SATURATION,HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_saturation);
+    else
+        mParameters.set(CameraParameters::KEY_MAX_SATURATION,CAMERA_DEF_SATURATION);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_brightness!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_brightness)
+        mParameters.set(CameraParameters::KEY_MAX_BRIGHTNESS,HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_brightness);
+    else
+        mParameters.set(CameraParameters::KEY_MAX_BRIGHTNESS,CAMERA_DEF_BRIGHTNESS);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_sharpness!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_sharpness)
+        mParameters.set(CameraParameters::KEY_MIN_SHARPNESS,HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_sharpness);
+    else
+        mParameters.set(CameraParameters::KEY_MIN_SHARPNESS,CAMERA_DEF_SHARPNESS);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_contrast!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_contrast)
+        mParameters.set(CameraParameters::KEY_MIN_CONTRAST,HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_sharpness);
+    else
+        mParameters.set(CameraParameters::KEY_MIN_CONTRAST,CAMERA_DEF_CONTRAST);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_saturation!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_saturation)
+        mParameters.set(CameraParameters::KEY_MIN_SATURATION,HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_saturation);
+    else
+        mParameters.set(CameraParameters::KEY_MIN_SATURATION,CAMERA_DEF_SATURATION);
+
+    if(HAL_cameraInfo[HAL_currentCameraId].parameters_data.max_brightness!=HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_brightness)
+        mParameters.set(CameraParameters::KEY_MIN_BRIGHTNESS,HAL_cameraInfo[HAL_currentCameraId].parameters_data.min_brightness);
+    else
+        mParameters.set(CameraParameters::KEY_MIN_BRIGHTNESS,CAMERA_DEF_BRIGHTNESS);
+
+    mParameters.set(CameraParameters::KEY_DEF_SHARPNESS,
+        CAMERA_DEF_SHARPNESS);
+    mParameters.set(CameraParameters::KEY_DEF_CONTRAST,
+        CAMERA_DEF_CONTRAST);
+    mParameters.set(CameraParameters::KEY_DEF_SATURATION,
+        CAMERA_DEF_SATURATION);
+    mParameters.set(CameraParameters::KEY_DEF_BRIGHTNESS,
+        CAMERA_DEF_BRIGHTNESS);
 
     mParameters.set(
             CameraParameters::KEY_MAX_EXPOSURE_COMPENSATION,
@@ -1967,6 +2053,8 @@ void QualcommCameraHardware::initDefaultParameters()
                     CAMERA_DEF_CONTRAST);
     mParameters.set(CameraParameters::KEY_SATURATION,
                     CAMERA_DEF_SATURATION);
+    mParameters.set(CameraParameters::KEY_BRIGHTNESS,
+                    CAMERA_DEF_BRIGHTNESS);
 
     mParameters.set(CameraParameters::KEY_ISO_MODE,
                     CameraParameters::ISO_AUTO);
@@ -2078,11 +2166,11 @@ void QualcommCameraHardware::initDefaultParameters()
     LOGV("%s: setting num-snaps-per-shutter to %d", __FUNCTION__, numCapture);
     if(mIs3DModeOn)
         mParameters.set("3d-frame-format", "left-right");
-
+/*
     if (setParameters(mParameters) != NO_ERROR) {
         LOGE("Failed to set default parameters?!");
     }
-
+*/
     /* Initialize the camframe_timeout_flag*/
     Mutex::Autolock l(&mCamframeTimeoutLock);
     camframe_timeout_flag = FALSE;
@@ -4512,6 +4600,7 @@ QualcommCameraHardware::~QualcommCameraHardware()
     //singleton_releasing_start_time = 0;
     //singleton_wait.signal();
     //singleton_lock.unlock();
+    timeoutCount=0;
     LOGV("~QualcommCameraHardware X");
 }
 
@@ -4631,6 +4720,13 @@ status_t QualcommCameraHardware::startPreview()
 {
   status_t result;
   LOGV("startPreview E");
+    LOGI("startPreview initdefaultP=%d",initdefaultP);
+    if(initdefaultP==0)
+    {
+        if (setParameters(mParameters) != NO_ERROR) {
+            LOGE("Failed to set default parameters?!");
+        }
+    }
   Mutex::Autolock l(&mLock);
   if( mPreviewWindow == NULL) {
     /* startPreview has been called before setting the preview
@@ -4855,6 +4951,9 @@ void QualcommCameraHardware::runAutoFocus()
     bool status = true;
     void *libhandle = NULL;
     isp3a_af_mode_t afMode = AF_MODE_AUTO;
+    int done=-1;
+    int retry_count=0;
+    int af_focus_result=0;
 
     mAutoFocusThreadLock.lock();
     // Skip autofocus if focus mode is infinity.
@@ -4887,6 +4986,26 @@ void QualcommCameraHardware::runAutoFocus()
             if(mCameraRunning){
                 LOGV("Start AF");
                 status =  native_start_ops(CAMERA_OPS_FOCUS ,(void *)&afMode);
+                do {
+                    usleep(100*1000);
+                    done = getFocusState();
+                    retry_count++;
+                } 
+					while((done != NO_ERROR)&&(retry_count<30));
+
+                if(done==NO_ERROR)
+                {
+                    af_focus_result = getFocusResult();
+                    if(af_focus_result == NO_ERROR){
+                        status = true;
+                        LOGE("getFocusResult - SUCCESS");
+                    }else{
+                    	status = false;
+                    	LOGE("getFocusResult - FAIL");                        
+                    }
+                }
+                else
+                    status = false;
             }else{
                 LOGV("As Camera preview is not running, AF not issued");
                 status = false;
@@ -4903,7 +5022,7 @@ void QualcommCameraHardware::runAutoFocus()
     }
     {
         Mutex::Autolock pl(&mParametersLock);
-        if(mHasAutoFocusSupport && (updateFocusDistances(focusMode) != NO_ERROR)) {
+        if((updateFocusDistances(focusMode) != NO_ERROR) && mHasAutoFocusSupport) {
             LOGE("%s: updateFocusDistances failed for %s", __FUNCTION__, focusMode);
         }
     }
@@ -5156,10 +5275,17 @@ status_t QualcommCameraHardware::autoFocus()
         * focus mode to infinity and supported mode to
         * infinity also. In this mode and fixed mode app
         * should not call auto focus.
-        */
-        LOGE("Auto Focus not supported");
+        */	
+        bool status = false;
+        mCallbackLock.lock();
+        bool autoFocusEnabled = mNotifyCallback && (mMsgEnabled & CAMERA_MSG_FOCUS);				
+        camera_notify_callback cb = mNotifyCallback;
+        void *data = mCallbackCookie;	
+        mCallbackLock.unlock();		
+        if (autoFocusEnabled)
+            cb(CAMERA_MSG_FOCUS, status, 1, data);
         LOGV("autoFocus X");
-        return INVALID_OPERATION;
+        return NO_ERROR;
     }
     {
         mAutoFocusThreadLock.lock();
@@ -5544,6 +5670,7 @@ status_t QualcommCameraHardware::cancelPicture()
 status_t QualcommCameraHardware::setParameters(const CameraParameters& params)
 {
     LOGV("setParameters: E params = %p", &params);
+    LOGI("setParameters: E params = %p initdefaultP=%d", &params,initdefaultP);
 
     Mutex::Autolock l(&mLock);
     Mutex::Autolock pl(&mParametersLock);
@@ -5571,18 +5698,18 @@ status_t QualcommCameraHardware::setParameters(const CameraParameters& params)
     if ((rc = setRotation(params)))     final_rc = rc;
     if ((rc = setZoom(params)))         final_rc = rc;
     if ((rc = setOrientation(params)))  final_rc = rc;
-    if ((rc = setLensshadeValue(params)))  final_rc = rc;
-    if ((rc = setMCEValue(params)))  final_rc = rc;
+    //if ((rc = setLensshadeValue(params)))  final_rc = rc;
+    //if ((rc = setMCEValue(params)))  final_rc = rc;
     //if ((rc = setHDRImaging(params)))  final_rc = rc;
-    if ((rc = setExpBracketing(params)))  final_rc = rc;
+    //if ((rc = setExpBracketing(params)))  final_rc = rc;
     if ((rc = setPictureFormat(params))) final_rc = rc;
     if ((rc = setSharpness(params)))    final_rc = rc;
     if ((rc = setSaturation(params)))   final_rc = rc;
     if ((rc = setTouchAfAec(params)))   final_rc = rc;
-    if ((rc = setSceneMode(params)))    final_rc = rc;
+    //if ((rc = setSceneMode(params)))    final_rc = rc;
     if ((rc = setContrast(params)))     final_rc = rc;
     if ((rc = setRecordSize(params)))  final_rc = rc;
-    if ((rc = setSceneDetect(params)))  final_rc = rc;
+    //if ((rc = setSceneDetect(params)))  final_rc = rc;
     if ((rc = setStrTextures(params)))   final_rc = rc;
     if ((rc = setPreviewFormat(params)))   final_rc = rc;
     if ((rc = setSkinToneEnhancement(params)))   final_rc = rc;
@@ -5600,7 +5727,7 @@ status_t QualcommCameraHardware::setParameters(const CameraParameters& params)
         if ((rc = setPreviewFrameRate(params))) final_rc = rc;
     //    if ((rc = setPreviewFrameRateMode(params))) final_rc = rc;
         if ((rc = setAutoExposure(params))) final_rc = rc;
-        if ((rc = setExposureCompensation(params))) final_rc = rc;
+    //    if ((rc = setExposureCompensation(params))) final_rc = rc;
         if ((rc = setWhiteBalance(params))) final_rc = rc;
         if ((rc = setFlash(params)))        final_rc = rc;
         if ((rc = setFocusMode(params)))    final_rc = rc;
@@ -5614,7 +5741,13 @@ status_t QualcommCameraHardware::setParameters(const CameraParameters& params)
     // setHighFrameRate needs to be done at end, as there can
     // be a preview restart, and need to use the updated parameters
     if ((rc = setHighFrameRate(params)))  final_rc = rc;
+    if(params.getInt("shutter-sound-enable") == 0){
+        mParameters.set("shutter-sound-enable", 0);
+    }else{
+        mParameters.set("shutter-sound-enable", 1);
+	} 
 
+    initdefaultP=1;
     LOGV("setParameters: X");
     return 0; //final_rc;
 }
@@ -7580,11 +7713,11 @@ status_t QualcommCameraHardware::setBrightness(const CameraParameters& params) {
         LOGI("Set Brightness not supported for this sensor");
         return NO_ERROR;
     }
-    int brightness = params.getInt("luma-adaptation");
+    int brightness = params.getInt(CameraParameters::KEY_BRIGHTNESS);
     if (mBrightness !=  brightness) {
         LOGV(" new brightness value : %d ", brightness);
         mBrightness =  brightness;
-        mParameters.set("luma-adaptation", brightness);
+        mParameters.set(CameraParameters::KEY_BRIGHTNESS, brightness);
     bool ret = native_set_parms(CAMERA_PARM_BRIGHTNESS, sizeof(mBrightness),
                                    (void *)&mBrightness);
         return ret ? NO_ERROR : UNKNOWN_ERROR;
@@ -7939,6 +8072,10 @@ status_t QualcommCameraHardware::setTouchAfAec(const CameraParameters& params)
 
                     //Set Touch AF params
                     af_roi_value.num_roi = 0;
+                    af_roi_value.roi[0].x =270;
+                    af_roi_value.roi[0].y=190;
+                    af_roi_value.roi[0].dx = 100;
+                    af_roi_value.roi[0].dy = 100;
                     native_set_parms(CAMERA_PARM_AEC_ROI, sizeof(cam_set_aec_roi_t), (void *)&aec_roi_value);
                     native_set_parms(CAMERA_PARM_AF_ROI, sizeof(roi_info_t), (void*)&af_roi_value);
                 }
@@ -8203,7 +8340,7 @@ status_t QualcommCameraHardware::setRotation(const CameraParameters& params)
 status_t QualcommCameraHardware::setZoom(const CameraParameters& params)
 {
     LOGI("setZoom E");
-//    return NO_ERROR;
+    return NO_ERROR; // TODO: need solution for zoom function work
     if(!mCfgControl.mm_camera_is_supported(CAMERA_PARM_ZOOM)) {
         LOGE("Parameter setZoom is not supported for this sensor");
         return NO_ERROR;
@@ -8278,6 +8415,28 @@ status_t QualcommCameraHardware::setZslParam(const CameraParameters& params)
 
 }
 
+status_t QualcommCameraHardware:: getFocusResult(void)
+{
+    LOGV("%s: IN", __FUNCTION__);
+    if( mCfgControl.mm_camera_get_parm(CAMERA_PARM_FOCUS_RESULT,
+        NULL) == MM_CAMERA_SUCCESS) {
+        return NO_ERROR;
+    }
+    LOGE("%s: getFocusResult not finished!!!", __FUNCTION__);
+    return BAD_VALUE;
+}
+
+status_t QualcommCameraHardware:: getFocusState(void)
+{
+    LOGV("%s: IN", __FUNCTION__);
+    if( mCfgControl.mm_camera_get_parm(CAMERA_PARM_FOCUS_STATE,
+        NULL) == MM_CAMERA_SUCCESS) {
+        return NO_ERROR;
+    }
+    LOGE("%s: getFocusState not finished!!!", __FUNCTION__);
+    return BAD_VALUE;
+}
+
 status_t QualcommCameraHardware::setSnapshotCount(const CameraParameters& params)
 {
     int value;
@@ -8326,6 +8485,29 @@ status_t QualcommCameraHardware::updateFocusDistances(const char *focusmode)
         mParameters.set(CameraParameters::KEY_FOCUS_DISTANCES, str.string());
         return NO_ERROR;
     }
+	else
+	{
+        String8 str;
+        char buffer[32];
+		
+        sprintf(buffer, "%.2f", 0.95);
+        str.append(buffer);
+        sprintf(buffer, ",%.2f", 1.90);
+        str.append(buffer);
+		#if 0
+        sprintf(buffer, ",%s", "Infinity");
+		#else
+        if(strcmp(focusmode, CameraParameters::FOCUS_MODE_INFINITY) == 0)
+            sprintf(buffer, ",%s", "Infinity");
+        else
+            sprintf(buffer, ",%f", 2.85);		
+		#endif
+        str.append(buffer);
+        LOGI("%s: setting KEY_FOCUS_DISTANCES as %s", __FUNCTION__, str.string());
+        mParameters.set(CameraParameters::KEY_FOCUS_DISTANCES, str.string());
+		
+        return NO_ERROR;		
+	}
     LOGE("%s: get CAMERA_PARM_FOCUS_DISTANCES failed!!!", __FUNCTION__);
     return BAD_VALUE;
 }
@@ -8389,9 +8571,9 @@ status_t QualcommCameraHardware::setFocusMode(const CameraParameters& params)
         if (value != NOT_FOUND) {
             mParameters.set(CameraParameters::KEY_FOCUS_MODE, str);
 
-            if(mHasAutoFocusSupport && (updateFocusDistances(str) != NO_ERROR)) {
+            if((updateFocusDistances(str) != NO_ERROR) && mHasAutoFocusSupport) {
                 LOGE("%s: updateFocusDistances failed for %s", __FUNCTION__, str);
-                return UNKNOWN_ERROR;
+                //return UNKNOWN_ERROR;
             }
 
             if(mHasAutoFocusSupport){
@@ -8779,6 +8961,11 @@ static void receive_camframe_callback(struct msm_frame *frame)
     if (obj != 0) {
         obj->receivePreviewFrame(frame);
     }
+    if (timeoutCount != 0)
+    {
+        timeoutCount = 0;
+        LOGV("receive_camframe_callback:  Set timeoutCount = 0");
+    }
 }
 
 static void receive_camstats_callback(camstats_type stype, camera_preview_histogram_info* histinfo)
@@ -8927,6 +9114,28 @@ void QualcommCameraHardware::receive_camframe_error_timeout(void) {
                     mCallbackCookie);
     LOGI("receive_camframe_error_timeout: X");
 }
+pthread_t timeout_thread;
+
+static void  SetSensorReSet(void)
+{
+    int rc;
+    struct msm_ctrl_cmd ctrlCmd;
+    LOGV("SetSensorReboot E");
+    sp<QualcommCameraHardware> obj = QualcommCameraHardware::getInstance();
+    obj->stopPreview();
+
+    native_start_ops(CAMERA_OPS_SENSOR_RESET, NULL);
+
+    obj->startPreview();
+    LOGV("SetSensorReboot X");
+
+}
+static void *timeout_frame(void*)
+{
+    SetSensorReSet();
+    pthread_exit((void *)0);
+    return NULL;
+}
 
 static void receive_camframe_error_callback(camera_error_type err) {
     QualcommCameraHardware* obj = QualcommCameraHardware::getInstance();
@@ -8936,7 +9145,13 @@ static void receive_camframe_error_callback(camera_error_type err) {
             /* Handling different error types is dependent on the requirement.
              * Do the same action by default
              */
-            obj->receive_camframe_error_timeout();
+            if(timeoutCount<=5)
+            {
+                timeoutCount++;
+                pthread_create(&timeout_thread, NULL ,timeout_frame, NULL);
+            }
+            else if (timeoutCount>5)
+                obj->receive_camframe_error_timeout();
         }
     }
 }
@@ -9090,6 +9305,7 @@ void QualcommCameraHardware::getCameraInfo()
         LOGI("modes_supported: %x", HAL_cameraInfo[i].modes_supported);
         LOGI("position: %d", HAL_cameraInfo[i].position);
         LOGI("sensor_mount_angle: %d", HAL_cameraInfo[i].sensor_mount_angle);
+        LOGI("sensor_Orientation: %d", HAL_cameraInfo[i].sensor_Orientation);
     }
 
 #if DLOPEN_LIBMMCAMERA

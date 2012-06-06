@@ -44,10 +44,7 @@
 #else
 #include <linux/time.h>
 #endif
-/*< DTS2011041700393 lijianzhao 20110417 begin */
-/* modify for 4125 baseline */
-#include <linux/slab.h>
-/* DTS2011041700393 lijianzhao 20110417 end >*/
+
 #define MSM_CAM_IOCTL_MAGIC 'm'
 
 #define MSM_CAM_IOCTL_GET_SENSOR_INFO \
@@ -161,9 +158,6 @@
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
 #define MSM_CAMERA_LED_HIGH 2
-/* < DTS2011072705129     xiangxu 20110728 begin */
-#define MSM_CAMERA_LED_TORCH 3
-/* DTS2011072705129     xiangxu 20110728 end >  */
 
 #define MSM_CAMERA_STROBE_FLASH_NONE 0
 #define MSM_CAMERA_STROBE_FLASH_XENON 1
@@ -487,18 +481,27 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_PICT_P_PL		25
 #define CFG_GET_AF_MAX_STEPS		26
 #define CFG_GET_PICT_MAX_EXP_LC		27
-#define CFG_SEND_WB_INFO    28
-/*< DTS2011072801699   songxiaoming 20110728 begin */
-//#define CFG_MAX 			29
-/*lijuan add for AWB OTP*/
-#define CFG_GET_CALIB_DATA 29
-#define CFG_MAX 30
-/* DTS2011072801699   songxiaoming 20110728 end > */
-
-/* < DTS2011090701903 zhangyu 20110907 begin */
-#define CFG_SET_NR          32
-#define CFG_RESET           31
-/* DTS2011090701903 zhangyu 20110907 end > */ 
+#define CFG_SEND_WB_INFO	28
+#define CFG_SET_LEDMOD	29
+#define CFG_SET_EXPOSUREMOD	30
+#define CFG_SET_SATURATION	31
+#define CFG_SET_SHARPNESS	32
+#define CFG_SET_HUE			33
+#define CFG_SET_GAMMA		34
+#define CFG_SET_AUTOEXPOSURE	35
+#define CFG_SET_AUTOFOCUS		36
+#define CFG_SET_METERINGMOD		37
+#define CFG_SET_SCENEMOD	38
+#define CFG_SET_FOCUSREC	39
+#define CFG_STROBE_FLASH	41
+#define CFG_SET_ISO			42
+#define CFG_SET_CAF			43
+#define CFG_SET_touchAEC	44
+#define CFG_SET_AFMODE		45
+#define CFG_SET_DIS			46
+#define CFG_GET_AFSTATE		47
+#define CFG_GET_AFRESULT	48 // FS,20111116
+#define CFG_MAX		49
 
 #define MOVE_NEAR	0
 #define MOVE_FAR	1
@@ -507,6 +510,8 @@ struct msm_snapshot_pp_status {
 #define SENSOR_SNAPSHOT_MODE		1
 #define SENSOR_RAW_SNAPSHOT_MODE	2
 #define SENSOR_VIDEO_120FPS_MODE	3
+#define SENSOR_RESET_MODE	4
+#define SENSOR_MIRROR_MODE	5
 
 #define SENSOR_QTR_SIZE			0
 #define SENSOR_FULL_SIZE		1
@@ -522,7 +527,11 @@ struct msm_snapshot_pp_status {
 #define CAMERA_EFFECT_WHITEBOARD	6
 #define CAMERA_EFFECT_BLACKBOARD	7
 #define CAMERA_EFFECT_AQUA		8
-#define CAMERA_EFFECT_MAX		9
+#define CAMERA_EFFECT_BLUISH		9
+#define CAMERA_EFFECT_REDDISH		10
+#define CAMERA_EFFECT_GREENISH		11
+#define CAMERA_EFFECT_COLORBAR		12
+#define CAMERA_EFFECT_MAX		13
 
 struct sensor_pict_fps {
 	uint16_t prevfps;
@@ -550,21 +559,33 @@ struct wb_info_cfg {
 	uint16_t blue_gain;
 };
 
-/*< DTS2011072801699   songxiaoming 20110728 begin */
-//lijuan add for AWB OTP
-struct sensor_cilb_cfg{
-
- uint16_t r_over_g;
- uint16_t b_over_g;
- uint16_t gr_over_gb;
- uint16_t macro_2_inf;
-  uint16_t inf_2_macro;
- uint16_t stroke_amt;
-  uint16_t af_pos_1m;
- uint16_t af_pos_inf;
- 
+struct touchAEC{
+	int enable;
+	uint32_t AEC_X;
+	uint32_t AEC_Y;
 };
-/* DTS2011072801699   songxiaoming 20110728 end > */
+
+struct camera_focus_rectangle{
+	/* Focus Window dimensions */
+	int16_t x_upper_left;
+	int16_t y_upper_left;
+	int16_t width; 
+	int16_t height;
+};
+
+/* Enum Type for different ISO Mode supported */
+typedef enum
+{
+	CAMERA_ISO_ISO_AUTO = 0,
+	CAMERA_ISO_ISO_DEBLUR,
+	CAMERA_ISO_ISO_100,
+	CAMERA_ISO_ISO_200,
+	CAMERA_ISO_ISO_400,
+	CAMERA_ISO_ISO_800,
+	CAMERA_ISO_ISO_1600,
+	CAMERA_ISO_ISO_MAX
+} camera_iso_mode;
+
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -573,10 +594,27 @@ struct sensor_cfg_data {
 
 	union {
 		int8_t effect;
+		int8_t wb;
+		int8_t antibanding;
+		int8_t brightness;
+		int8_t ledmod;
+		int8_t exposuremod;
+		int8_t saturation;
+		int8_t sharpness;
+		int8_t contrast;
+		int8_t hue;
+		int8_t gamma;
+		int8_t autoexposure;
+		int8_t autofocus;
+		int8_t meteringmod;
+		int8_t scenemod;
+		int8_t CAF;
+		int8_t afmode;
+		int8_t dis;
+		struct touchAEC AECIndex;
+		struct camera_focus_rectangle focusrec;
+		camera_iso_mode iso;
 		uint8_t lens_shading;
-		/* < DTS2011090701903 zhangyu 20110907 begin */
-		uint8_t lut_index;
-		/* DTS2011090701903 zhangyu 20110907 end > */ 
 		uint16_t prevl_pf;
 		uint16_t prevp_pl;
 		uint16_t pictl_pf;
@@ -588,9 +626,6 @@ struct sensor_cfg_data {
 		struct focus_cfg focus;
 		struct fps_cfg fps;
 		struct wb_info_cfg wb_info;
-		/*< DTS2011072801699   songxiaoming 20110728 begin */
-		struct sensor_cilb_cfg calib_info;//lijuan add for AWB OTP
-		/* DTS2011072801699   songxiaoming 20110728 end > */
 	} cfg;
 };
 
@@ -610,11 +645,36 @@ struct strobe_flash_ctrl_data {
 	int charge_en;
 };
 
+struct fih_parameters_data {
+	uint32_t autoexposure;
+	uint32_t effects;
+	uint32_t wb;
+	uint32_t antibanding;
+	uint32_t flash;
+	uint32_t focus;
+	uint32_t ISO;
+	uint32_t lensshade;
+	uint32_t scenemode;
+	uint32_t continuous_af;
+	uint32_t touchafaec;
+	uint32_t frame_rate_modes;
+	int8_t  max_brightness;
+	int8_t  max_contrast;
+	int8_t  max_saturation;
+	int8_t  max_sharpness;
+	int8_t  min_brightness;
+	int8_t  min_contrast;
+	int8_t  min_saturation;
+	int8_t  min_sharpness;
+};
+
 struct msm_camera_info {
 	int num_cameras;
 	uint8_t has_3d_support[MSM_MAX_CAMERA_SENSORS];
+	uint32_t sensor_Orientation[MSM_MAX_CAMERA_SENSORS];
 	uint8_t is_internal_cam[MSM_MAX_CAMERA_SENSORS];
 	uint32_t s_mount_angle[MSM_MAX_CAMERA_SENSORS];
+	struct fih_parameters_data parameters_data[MSM_MAX_CAMERA_SENSORS];
 };
 
 struct flash_ctrl_data {
@@ -636,6 +696,27 @@ struct flash_ctrl_data {
 struct msm_camsensor_info {
 	char name[MAX_SENSOR_NAME];
 	uint8_t flash_enabled;
+	uint8_t sensor_Orientation;
 	int8_t total_steps;
+	uint32_t autoexposure;
+	uint32_t effects;
+	uint32_t wb;
+	uint32_t antibanding;
+	uint32_t flash;
+	uint32_t focus;
+	uint32_t ISO;
+	uint32_t lensshade;
+	uint32_t scenemode;
+	uint32_t continuous_af;
+	uint32_t touchafaec;
+	uint32_t frame_rate_modes;
+	int8_t  max_brightness;
+	int8_t  max_contrast;
+	int8_t  max_saturation;
+	int8_t  max_sharpness;
+	int8_t  min_brightness;
+	int8_t  min_contrast;
+	int8_t  min_saturation;
+	int8_t  min_sharpness;
 };
 #endif /* __LINUX_MSM_CAMERA_H */

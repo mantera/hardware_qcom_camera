@@ -29,7 +29,6 @@
 #define EXIFTAGID_GPS_TIMESTAMP        0x70007
 #define EXIFTAGID_GPS_PROCESSINGMETHOD 0x1b001b
 #define EXIFTAGID_GPS_DATESTAMP        0x1d001d
-
 #define EXIFTAGID_EXIF_DATE_TIME_ORIGINAL    0x3a9003
 #define EXIFTAGID_EXIF_DATE_TIME_CREATED    0x3b9004
 #define EXIFTAGID_FOCAL_LENGTH         0x45920a
@@ -165,6 +164,8 @@ typedef enum {
   CAMERA_PARM_CAMERA_INFO,
   CAMERA_PARM_PREVIEW_SIZE, /*35*/
   CAMERA_PARM_FOCUS_DISTANCES,
+  CAMERA_PARM_FOCUS_STATE,
+  CAMERA_PARM_FOCUS_RESULT
 }mm_camera_parm_type_t;
 
 typedef enum {
@@ -181,6 +182,7 @@ typedef enum {
   CAMERA_OPS_VIDEO_RECORDING, /*10*/
   CAMERA_OPS_REGISTER_BUFFER,
   CAMERA_OPS_UNREGISTER_BUFFER,
+  CAMERA_OPS_SENSOR_RESET,
 }mm_camera_ops_type_t;
 
 typedef struct {
@@ -312,6 +314,8 @@ typedef struct {
   int8_t camera_id;
   cam_position_t position;
   uint32_t sensor_mount_angle;
+  uint32_t sensor_Orientation;
+  struct fih_parameters_data parameters_data;
 }camera_info_t;
 
 typedef struct {
@@ -454,6 +458,11 @@ typedef enum {
   CAMERA_SET_PARM_FD,
   CAMERA_GET_PARM_3D_FRAME_FORMAT,
   CAMERA_GET_PARM_FOCUS_DISTANCES,
+  CAMERA_SET_PARM_SCENE_MODE,
+  CAMERA_SET_PARM_RESET,
+  CAMERA_SET_MIRROR,
+  CAMERA_GET_AFSTATE,
+  CAMERA_GET_AFRESULT,
   CAMERA_CTRL_PARM_MAX
 } cam_ctrl_type;
 
@@ -1203,8 +1212,8 @@ extern camera_iso_mode_type max_camera_iso_type;
 #define CAMERA_BRIGHTNESS_STEP 1
 
 #define CAMERA_MIN_CONTRAST    0
-#define CAMERA_DEF_CONTRAST    5
-#define CAMERA_MAX_CONTRAST    10
+#define CAMERA_DEF_CONTRAST    2
+#define CAMERA_MAX_CONTRAST    4
 
 #define CAMERA_MIN_SCE_FACTOR    -100
 #define CAMERA_DEF_SCE_FACTOR    0
@@ -1212,8 +1221,8 @@ extern camera_iso_mode_type max_camera_iso_type;
 
 /* No saturation for default */
 #define CAMERA_MIN_SATURATION  0
-#define CAMERA_DEF_SATURATION  5
-#define CAMERA_MAX_SATURATION  10
+#define CAMERA_DEF_SATURATION  2
+#define CAMERA_MAX_SATURATION  4
 
 /* No hue for default. */
 #define CAMERA_MIN_HUE         0
@@ -1223,9 +1232,9 @@ extern camera_iso_mode_type max_camera_iso_type;
 
 /* No sharpness for default */
 #define CAMERA_MIN_SHARPNESS   0
-#define CAMERA_DEF_SHARPNESS   10
-#define CAMERA_MAX_SHARPNESS   30
-#define CAMERA_SHARPNESS_STEP  2
+#define CAMERA_DEF_SHARPNESS   2
+#define CAMERA_MAX_SHARPNESS   4
+#define CAMERA_SHARPNESS_STEP  1
 
 #define CAMERA_MIN_ZOOM  0
 #define CAMERA_DEF_ZOOM  0

@@ -494,6 +494,8 @@ private:
     bool storePreviewFrameForPostview();
     bool isValidDimension(int w, int h);
     status_t updateFocusDistances(const char *focusmode);
+    status_t getFocusState(void);
+    status_t getFocusResult(void);
     int mStoreMetaDataInFrame;
 
     Mutex mLock;
