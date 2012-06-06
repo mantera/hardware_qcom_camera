@@ -1,5 +1,5 @@
 ifneq ($(USE_CAMERA_STUB),true)
-ifeq ($(TARGET_BOOTLOADER_BOARD_NAME),fb0)
+ifeq ($(TARGET_BOARD_PLATFORM),msm7x30)
 
 # When zero we link against libmmcamera; when 1, we dlopen libmmcamera.
 DLOPEN_LIBMMCAMERA:=1
@@ -38,7 +38,7 @@ LOCAL_SHARED_LIBRARIES+= libgenlock libbinder
 LOCAL_SHARED_LIBRARIES+= libdl
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
-LOCAL_MODULE:= camera.$(TARGET_BOOTLOADER_BOARD_NAME)
+LOCAL_MODULE:= camera.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
 
